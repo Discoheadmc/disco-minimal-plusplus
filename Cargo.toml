@@ -1,0 +1,73 @@
+[workspace]
+resolver = "3"
+members = ["packages/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+license = "GPL-3.0-only"
+authors = ["Discoheadmc", "Disco Minimal++ Contributors"]
+repository = "https://github.com/Discoheadmc/disco-minimal-plusplus"
+readme = "README.md"
+keywords = ["minecraft", "launcher", "rust", "freya"]
+categories = ["games"]
+
+[workspace.dependencies]
+# iç paketler
+disco_common = { path = "packages/disco_common" }
+disco_net = { path = "packages/disco_net" }
+disco_auth = { path = "packages/disco_auth" }
+disco_mc = { path = "packages/disco_mc" }
+disco_core = { path = "packages/disco_core" }
+
+# async + ağ
+tokio = { version = "1", features = ["full"] }
+futures-util = "0.3"
+reqwest = { version = "0.13", default-features = false, features = [
+  "json",
+  "stream",
+  "rustls",
+  "charset",
+  "http2",
+  "gzip",
+] }
+
+# serileştirme
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# hata & log
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+# yardımcılar
+sha1 = "0.11"
+md-5 = "0.11"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+directories = "6"
+zip = "2"
+
+# UI — OneLauncher ile aynı Polyfrost Freya fork'u (kanıtlanmış Windows MSVC derlemesi)
+freya = { git = "https://github.com/Polyfrost/freya", rev = "12f696f68c4936617b8627c862b39acb3d9cca2b", features = [
+  "engine",
+  "winit",
+  "sdk-tokio",
+  "radio",
+] }
+
+[profile.release]
+codegen-units = 1
+debug = "line-tables-only"
+lto = "fat"
+opt-level = 3
+panic = "abort"
+strip = true
+
+[profile.release-profiling]
+inherits = "release"
+debug = true
+strip = false

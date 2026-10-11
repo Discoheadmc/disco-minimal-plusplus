@@ -1,0 +1,26 @@
+# --- Rust ---
+/target
+**/*.rs.bk
+
+# --- Referans klonu (bizim repo'ya girmeyecek) ---
+/reference/
+
+# --- IDE / Editör ---
+.idea/
+.vscode/
+*.iml
+.zed/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Build / paketleme artefaktları ---
+*.exe
+*.msi
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+/dist/

@@ -1,0 +1,20 @@
+[package]
+name = "disco_app"
+description = "Disco Minimal++ — Freya arayüzü"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+disco_common.workspace = true
+disco_core.workspace = true
+disco_mc.workspace = true
+disco_auth.workspace = true
+disco_net.workspace = true
+
+freya.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

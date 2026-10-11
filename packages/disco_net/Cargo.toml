@@ -1,0 +1,18 @@
+[package]
+name = "disco_net"
+description = "Disco Minimal++ — SHA1 doğrulamalı, paralel indirme motoru"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[dependencies]
+disco_common.workspace = true
+
+serde.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+futures-util.workspace = true
+sha1.workspace = true
+tracing.workspace = true
