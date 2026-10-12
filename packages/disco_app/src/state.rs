@@ -12,6 +12,7 @@ pub enum AppChannel {
     Launch,
     Settings,
     Account,
+    Store,
 }
 
 impl RadioChannel<AppState> for AppChannel {}
@@ -25,6 +26,27 @@ pub struct AppState {
     pub login: LoginUiState,
     /// İptal edilen eski oturumların sonucu geçersiz kalsın diye nesil sayacı.
     pub login_gen: u64,
+    /// Modrinth mağazası.
+    pub store: StoreState,
+}
+
+/// Mağaza durumu: arama sonuçları listesi + kurulum trafiği.
+#[derive(Clone, PartialEq)]
+pub struct StoreState {
+    pub hits: Vec<StoreHit>,
+    pub loading: bool,
+    /// Popüler liste hiç çekildiyse tekrar istenmez.
+    pub loaded: bool,
+}
+
+/// UI tarafında sadeleştirilmiş arama sonucu (PartialEq borçları burada).
+#[derive(Clone, PartialEq)]
+pub struct StoreHit {
+    pub project_id: String,
+    pub title: String,
+    pub description: String,
+    pub downloads: u64,
+    pub game_versions: String,
 }
 
 /// Sürüm manifesti (UI için sadeleştirilmiş).
@@ -61,6 +83,11 @@ impl AppState {
             settings: disco_core::settings::load(),
             login: LoginUiState::None,
             login_gen: 0,
+            store: StoreState {
+                hits: Vec::new(),
+                loading: false,
+                loaded: false,
+            },
         }
     }
 }

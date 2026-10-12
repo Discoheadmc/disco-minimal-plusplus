@@ -5,9 +5,15 @@ use freya::radio::use_radio;
 
 use crate::actions::use_dispatch;
 use crate::components::{hex_to_color, ButtonVariant, DButton, ACCENTS};
-use crate::state::{AppChannel, LaunchState, LoginUiState, ManifestState};
+use crate::state::{AppChannel, LaunchState, LoginUiState, ManifestState, StoreHit, StoreState};
 use crate::theme;
 use disco_core::Instance;
+
+#[derive(Clone, Copy, PartialEq)]
+pub enum Tab {
+    Instances,
+    Store,
+}
 
 #[derive(PartialEq)]
 pub struct Home;
@@ -19,25 +25,40 @@ impl Component for Home {
         let manifest = use_radio(AppChannel::Manifest).read().manifest.clone();
         let launch = use_radio(AppChannel::Launch).read().launch.clone();
         let player = use_radio(AppChannel::Settings).read().settings.player_name.clone();
+        let store = use_radio(AppChannel::Store).read().store.clone();
 
         let busy = !matches!(launch, LaunchState::Idle | LaunchState::Failed(_));
+
+        let tab = use_state(|| Tab::Instances);
+        let active = *tab.read();
+
+        let content = match active {
+            Tab::Instances => rect()
+                .horizontal()
+                .width(Size::fill())
+                .height(Size::fill())
+                .padding(Gaps::new(20., 20., 0., 20.))
+                .spacing(16.)
+                .child(instances_panel(&instances, busy, &actions))
+                .child(create_panel(&manifest, &player, busy, &actions))
+                .into_element(),
+            Tab::Store => rect()
+                .horizontal()
+                .width(Size::fill())
+                .height(Size::fill())
+                .padding(Gaps::new(20., 20., 0., 20.))
+                .spacing(16.)
+                .child(store_panel(&store, &actions))
+                .into_element(),
+        };
 
         rect()
             .vertical()
             .width(Size::fill())
             .height(Size::fill())
             .background(theme::bg())
-            .child(header())
-            .child(
-                rect()
-                    .horizontal()
-                    .width(Size::fill())
-                    .height(Size::fill())
-                    .padding(Gaps::new(20., 20., 0., 20.))
-                    .spacing(16.)
-                    .child(instances_panel(&instances, busy, &actions))
-                    .child(create_panel(&manifest, &player, busy, &actions)),
-            )
+            .child(header(tab))
+            .child(content)
             .child(
                 rect()
                     .horizontal()
@@ -52,7 +73,11 @@ impl Component for Home {
     }
 }
 
-fn header() -> impl IntoElement {
+fn header(tab: State<Tab>) -> impl IntoElement {
+    let active = *tab.read();
+    let mut tab_instances = tab;
+    let mut tab_store = tab;
+
     rect()
         .horizontal()
         .width(Size::fill())
@@ -65,7 +90,7 @@ fn header() -> impl IntoElement {
                 .width(Size::px(34.))
                 .height(Size::px(34.))
                 .corner_radius(CornerRadius::new_all(10.))
-                .background(theme::accent())
+                .background(crate::components::use_accent().base)
                 .main_align(Alignment::Center)
                 .cross_align(Alignment::Center)
                 .child(
@@ -82,6 +107,30 @@ fn header() -> impl IntoElement {
                 .font_size(19.)
                 .font_weight(FontWeight::BOLD)
                 .color(theme::fg()),
+        )
+        .child(
+            DButton::new("Instance'lar")
+                .variant(if active == Tab::Instances {
+                    ButtonVariant::Selected
+                } else {
+                    ButtonVariant::Ghost
+                })
+                .on_press(move |_| tab_instances.set(Tab::Instances))
+                .into_element(),
+        )
+        .child(
+            DButton::new("Mağaza")
+                .variant(if active == Tab::Store {
+                    ButtonVariant::Selected
+                } else {
+                    ButtonVariant::Ghost
+                })
+                .on_press(move |_| {
+                    tab_store.set(Tab::Store);
+                    // boşsa popüler listesini getir (loaded guard'ı içeride)
+                    crate::actions::use_dispatch().show_popular();
+                })
+                .into_element(),
         )
         .child(
             rect()
@@ -548,5 +597,148 @@ fn theme_card(actions: &crate::actions::Actions) -> impl IntoElement {
                 .horizontal()
                 .spacing(8.)
                 .children(swatches),
+        )
+}
+
+// ---------------------------------------------------------------------------
+// Mağaza — Modrinth
+// ---------------------------------------------------------------------------
+
+fn store_panel(store: &StoreState, actions: &crate::actions::Actions) -> impl IntoElement {
+    let query = use_state(String::new);
+
+    let mut rows: Vec<Element> = Vec::new();
+    if store.loading {
+        rows.push(
+            label()
+                .text("Aranıyor…")
+                .font_size(12.)
+                .color(theme::fg_muted())
+                .into_element(),
+        );
+    } else if store.hits.is_empty() {
+        rows.push(
+            label()
+                .text("Sonuç yok. Bir şeyler ara ya da \"Popüler\"e bas.")
+                .font_size(12.)
+                .color(theme::fg_muted())
+                .into_element(),
+        );
+    } else {
+        for hit in &store.hits {
+            rows.push(store_row(hit, actions).into_element());
+        }
+    }
+
+    let search_actions = actions.clone();
+    let search_actions_btn = actions.clone();
+    let popular_actions = actions.clone();
+    let query_for_search = query.clone();
+
+    rect()
+        .vertical()
+        .width(Size::fill())
+        .height(Size::fill())
+        .padding(Gaps::new(16., 16., 16., 16.))
+        .spacing(12.)
+        .corner_radius(CornerRadius::new_all(12.))
+        .background(theme::surface())
+        .overflow(Overflow::Clip)
+        .child(
+            label()
+                .text("Modrinth Mağazası — Mod Paketleri")
+                .font_size(15.)
+                .font_weight(FontWeight::SEMI_BOLD)
+                .color(theme::fg()),
+        )
+        .child(
+            rect()
+                .horizontal()
+                .width(Size::fill())
+                .spacing(8.)
+                .cross_align(Alignment::Center)
+                .child(
+                    Input::new(query)
+                        .placeholder("Mod paketi ara (ör. Simply Optimized, Fabulously Optimized)")
+                        .padding(Gaps::new_symmetric(8., 12.))
+                        .corner_radius(CornerRadius::new_all(8.))
+                        .background(theme::surface_raised())
+                        .border_fill(theme::bg())
+                        .color(theme::fg())
+                        .on_submit(move |text: String| {
+                            search_actions.search_store(text);
+                        }),
+                )
+                .child(
+                    DButton::new("Ara")
+                        .on_press(move |_| {
+                            let value = (*query_for_search.read()).clone();
+                            search_actions_btn.search_store(value);
+                        })
+                        .into_element(),
+                )
+                .child(
+                    DButton::new("Popüler")
+                        .secondary()
+                        .on_press(move |_| popular_actions.show_popular())
+                        .into_element(),
+                ),
+        )
+        .children(rows)
+}
+
+fn store_row(hit: &StoreHit, actions: &crate::actions::Actions) -> impl IntoElement {
+    let install = actions.clone();
+    let project_id = hit.project_id.clone();
+    let title = hit.title.clone();
+
+    let downloads = if hit.downloads >= 1_000_000 {
+        format!("{:.1}M", hit.downloads as f64 / 1_000_000.0)
+    } else if hit.downloads >= 1_000 {
+        format!("{:.1}K", hit.downloads as f64 / 1_000.0)
+    } else {
+        hit.downloads.to_string()
+    };
+
+    rect()
+        .horizontal()
+        .width(Size::fill())
+        .padding(Gaps::new(10., 10., 10., 10.))
+        .spacing(10.)
+        .cross_align(Alignment::Center)
+        .corner_radius(CornerRadius::new_all(10.))
+        .background(theme::surface_raised())
+        .child(
+            rect()
+                .vertical()
+                .width(Size::fill())
+                .spacing(2.)
+                .child(
+                    label()
+                        .text(hit.title.clone())
+                        .font_size(13.)
+                        .font_weight(FontWeight::SEMI_BOLD)
+                        .color(theme::fg()),
+                )
+                .child(
+                    label()
+                        .text(hit.description.clone())
+                        .font_size(11.)
+                        .max_lines(2)
+                        .color(theme::fg_muted()),
+                ),
+        )
+        .child(
+            label()
+                .text(format!("{downloads} indirme · MC {}", hit.game_versions))
+                .font_size(10.)
+                .color(theme::fg_muted()),
+        )
+        .child(
+            DButton::new("Kur")
+                .on_press(move |_| {
+                    install.install_modpack(project_id.clone(), title.clone());
+                })
+                .into_element(),
         )
 }

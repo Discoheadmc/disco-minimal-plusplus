@@ -20,6 +20,7 @@ disco_net = { path = "packages/disco_net" }
 disco_auth = { path = "packages/disco_auth" }
 disco_mc = { path = "packages/disco_mc" }
 disco_core = { path = "packages/disco_core" }
+disco_content = { path = "packages/disco_content" }
 
 # async + ağ
 tokio = { version = "1", features = ["full"] }

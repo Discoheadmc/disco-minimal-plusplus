@@ -19,10 +19,6 @@ pub fn surface_pressed() -> Color {
     Color::from_rgb(46, 52, 95)
 }
 
-pub fn accent() -> Color {
-    Color::from_rgb(124, 92, 255)
-}
-
 pub fn fg() -> Color {
     Color::from_rgb(240, 242, 250)
 }

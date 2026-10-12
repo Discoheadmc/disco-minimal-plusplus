@@ -1,0 +1,51 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Derleme önbelleği
+        uses: Swatinem/rust-cache@v2
+
+      - name: Kontrol
+        run: cargo check --workspace
+
+      - name: Testler
+        run: cargo test --workspace
+
+      - name: Release derlemesi
+        run: cargo build --release -p disco_app
+
+      - name: EXE artefaktı yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: disco-app-windows
+          path: target/release/disco_app.exe
+
+      # İsterse tag'lerde NSIS installer + GitHub Release
+      - name: NSIS installer (sadece tag'lerde)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cargo install cargo-packager --locked
+          cargo packager --release -p disco_app --formats nsis
+
+      - name: GitHub Release (sadece tag'lerde)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/release/*-setup.exe
+          generate_release_notes: true

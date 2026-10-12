@@ -13,6 +13,7 @@ disco_core.workspace = true
 disco_mc.workspace = true
 disco_auth.workspace = true
 disco_net.workspace = true
+disco_content.workspace = true
 
 freya.workspace = true
 tokio.workspace = true

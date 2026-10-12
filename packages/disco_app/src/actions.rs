@@ -295,4 +295,109 @@ impl Actions {
             s.login = LoginUiState::None;
         });
     }
+
+    // ------------------------------------------------------------------
+    // Modrinth mağazası
+    // ------------------------------------------------------------------
+
+    pub fn search_store(&self, query: String) {
+        let actions = self.clone();
+        self.write(AppChannel::Store, |s| {
+            s.store.loading = true;
+        });
+        spawn_forever(async move {
+            let result = match disco_net::Http::new() {
+                Ok(http) => disco_content::search_modpacks(&http, &query).await,
+                Err(err) => Err(err),
+            };
+            match result {
+                Ok(hits) => {
+                    let hits: Vec<crate::state::StoreHit> = hits
+                        .iter()
+                        .map(|hit| crate::state::StoreHit {
+                            project_id: hit.project_id.clone(),
+                            title: hit.title.clone(),
+                            description: hit.description.clone(),
+                            downloads: hit.downloads,
+                            game_versions: hit
+                                .versions
+                                .first()
+                                .cloned()
+                                .unwrap_or_else(|| "?".into()),
+                        })
+                        .collect();
+                    actions.write(AppChannel::Store, |s| {
+                        s.store.hits = hits;
+                        s.store.loading = false;
+                        s.store.loaded = true;
+                    });
+                }
+                Err(err) => {
+                    actions.write(AppChannel::Store, |s| {
+                        s.store.loading = false;
+                    });
+                    actions.write(AppChannel::Launch, |s| {
+                        s.launch = LaunchState::Failed(format!("Arama başarısız: {err}"));
+                    });
+                }
+            }
+        });
+    }
+
+    /// Boş sorgu = popüler paketler; liste zaten doluysa tekrar istenmez.
+    pub fn show_popular(&self) {
+        {
+            let guard = self.station.clone().write_channel(AppChannel::Store);
+            if guard.store.loaded || guard.store.loading {
+                return;
+            }
+        }
+        self.search_store(String::new());
+    }
+
+    pub fn install_modpack(&self, project_id: String, title: String) {
+        let actions = self.clone();
+        self.write(AppChannel::Launch, |s| {
+            if matches!(s.launch, LaunchState::Idle | LaunchState::Failed(_)) {
+                s.launch = LaunchState::Working {
+                    stage: format!("Kuruluyor: {title}"),
+                    done: None,
+                    total: None,
+                };
+            } else {
+                return; // başka iş sürüyor
+            }
+        });
+
+        spawn_forever(async move {
+            let (events_tx, mut events_rx) = tokio::sync::mpsc::unbounded_channel();
+            let pump = actions.clone();
+            spawn_forever(async move {
+                while let Some(event) = events_rx.recv().await {
+                    pump.apply_launch_event(event);
+                }
+            });
+
+            let http = match disco_net::Http::new() {
+                Ok(http) => http,
+                Err(err) => {
+                    actions.apply_launch_event(disco_core::LaunchEvent::Failed(err.to_string()));
+                    return;
+                }
+            };
+            match disco_content::install_modpack(&http, &project_id, &title, events_tx).await {
+                Ok(instance) => {
+                    actions.refresh_instances();
+                    actions.apply_launch_event(disco_core::LaunchEvent::Stage(format!(
+                        "'{}' kuruldu — Başlat'a hazır!",
+                        instance.name
+                    )));
+                }
+                Err(err) => {
+                    tracing::error!("mod paketi kurulamadı: {err}");
+                    actions.apply_launch_event(disco_core::LaunchEvent::Failed(err.to_string()));
+                }
+            }
+        });
+    }
 }

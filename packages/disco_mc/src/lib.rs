@@ -375,10 +375,11 @@ pub async fn resolve_with_manifest(
     let mut chain: Vec<VersionDetails> = Vec::new();
     let mut current_id = version_id.to_string();
     loop {
-        let entry = manifest
-            .find(&current_id)
-            .ok_or_else(|| DiscoError::NotFound(format!("sürüm bulunamadı: {current_id}")))?;
-        let details = fetch_version_details(http, entry).await?;
+        let details = match manifest.find(&current_id) {
+            Some(entry) => fetch_version_details(http, entry).await?,
+            // manifest'te olmayan sürüm: custom sürüm (ör. fabric profili) diskte
+            None => load_local_version_details(&current_id).await?,
+        };
         let next = details.inherits_from.clone();
         chain.push(details);
         match next {
@@ -393,6 +394,19 @@ pub async fn resolve_with_manifest(
         resolved = resolved.merged_with(details);
     }
     Ok(resolved)
+}
+
+/// Custom sürüm JSON'unu diskten okur (versions/<id>/<id>.json).
+async fn load_local_version_details(version_id: &str) -> Result<VersionDetails> {
+    let path = paths::versions_dir()?
+        .join(version_id)
+        .join(format!("{version_id}.json"));
+    let raw = tokio::fs::read_to_string(&path)
+        .await
+        .map_err(|_| DiscoError::NotFound(format!("sürüm bulunamadı: {version_id}")))?;
+    serde_json::from_str(&raw).map_err(|e| {
+        DiscoError::Invalid(format!("custom sürüm JSON'u bozuk ({version_id}): {e}"))
+    })
 }
 
 /// Sürüm JSON'unu çeker; diskte geçerli kopya varsa onu kullanır.

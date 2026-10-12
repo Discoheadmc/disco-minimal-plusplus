@@ -24,17 +24,18 @@ A minimal, performance-first Minecraft launcher, written from scratch in 100% Ru
 packages/
 ├── disco_common   # sabitler, veri dizinleri, ortak hata tipleri
 ├── disco_net      # HTTP istemcisi; SHA1 doğrulamalı, paralel indirme motoru
-├── disco_auth     # çevrimdışı (Mojang-tarzı UUID) + Microsoft hesap yapısı
+├── disco_auth     # çevrimdışı (Mojang-tarzı UUID) + Microsoft hesapları
 ├── disco_mc       # Mojang piston-meta manifest, sürüm çözümleme, dosya hazırlığı, komut üretimi
-├── disco_core     # instance yönetimi, ayarlar, başlatma orkestrasyonu
+├── disco_core     # instance yönetimi, ayarlar, Java kurulumu, başlatma orkestrasyonu
+├── disco_content  # Modrinth mağazası: arama, .mrpack kurulumu, Fabric/Quilt profilleri
 └── disco_app      # Freya UI (disco_minimal++ binary'si)
 ```
 
-## Durum — Kilometre Taşı 1
+## Durum — Kilometre Taşı 2
 
 - [x] Cargo workspace altyapısı (edition 2024, Rust 1.97+)
 - [x] Mojang sürüm manifesti: çekme + ayrıştırma + disk önbelleği (çevrimdışı açılış)
-- [x] Sürüm çözümleme (`inheritsFrom` zinciri dahil)
+- [x] Sürüm çözümleme (`inheritsFrom` zinciri + custom sürümler)
 - [x] Client jar + kütüphaneler + assetler için paralel, SHA1 doğrulamalı indirme
 - [x] Natives çıkarma (LWJGL)
 - [x] Instance modeli (dosya tabanlı, XMCL/Prism tarzı)
@@ -42,11 +43,14 @@ packages/
 - [x] **Microsoft hesap girişi** (device code flow; XBL → XSTS → Minecraft services, otomatik token yenileme)
 - [x] **Java otomatik indirme** (Mojang java-runtime API; sistem Java'sı yoksa gereken sürüm iner)
 - [x] **8 renk tema seçici** (Disco Launcher geleneği, anında uygulanır)
-- [x] Freya UI: instance listesi, sürüm seçici, hesap kartı, durum çubuğu
+- [x] **Modrinth mağazası** — mod paketi ara, popüler listesi, tek tıkla kurulum
+- [x] **Fabric/Quilt loader** — mod paketleri için loader profili otomatik kurulur
+- [x] `.mrpack` kurulum motoru (index ayrıştırma + overrides + paralel dosya indirme)
+- [x] **GitHub Actions CI** — her push'ta kontrol/test/build; `v*` tag'lerinde NSIS installer + Release
 - [x] **Windows installer** (cargo-packager + NSIS, EXE ikonu gömülü)
-- [ ] Mod paketi mağazası (Modrinth/CurseForge)
+- [ ] Forge desteği
 - [ ] Borderless özel başlık çubuğu
-- [ ] Mod yükleme (Fabric/Quilt harici sürümler)
+- [ ] CurseForge mağazası
 
 ## Geliştirme
 
