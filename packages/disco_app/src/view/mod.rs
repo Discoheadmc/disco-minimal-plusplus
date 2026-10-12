@@ -4,8 +4,8 @@ use freya::prelude::*;
 use freya::radio::use_radio;
 
 use crate::actions::use_dispatch;
-use crate::components::{ButtonVariant, DButton};
-use crate::state::{AppChannel, LaunchState, ManifestState};
+use crate::components::{hex_to_color, ButtonVariant, DButton, ACCENTS};
+use crate::state::{AppChannel, LaunchState, LoginUiState, ManifestState};
 use crate::theme;
 use disco_core::Instance;
 
@@ -33,10 +33,20 @@ impl Component for Home {
                     .horizontal()
                     .width(Size::fill())
                     .height(Size::fill())
-                    .padding(Gaps::new(20., 20., 20., 20.))
+                    .padding(Gaps::new(20., 20., 0., 20.))
                     .spacing(16.)
                     .child(instances_panel(&instances, busy, &actions))
                     .child(create_panel(&manifest, &player, busy, &actions)),
+            )
+            .child(
+                rect()
+                    .horizontal()
+                    .width(Size::fill())
+                    .padding(Gaps::new(16., 20., 8., 20.))
+                    .spacing(16.)
+                    .cross_align(Alignment::Center)
+                    .child(account_card(&actions))
+                    .child(theme_card(&actions)),
             )
             .child(status_bar(&launch))
     }
@@ -368,5 +378,175 @@ fn status_bar(launch: &LaunchState) -> impl IntoElement {
                 .font_size(12.)
                 .max_lines(2)
                 .color(color),
+        )
+}
+
+// ---------------------------------------------------------------------------
+// Hesap kartı — Microsoft device-code girişi
+// ---------------------------------------------------------------------------
+
+fn account_card(actions: &crate::actions::Actions) -> impl IntoElement {
+    let login = use_radio(AppChannel::Account).read().login.clone();
+    let settings = use_radio(AppChannel::Settings).read().settings.clone();
+
+    let mut row: Vec<Element> = Vec::new();
+
+    match login {
+        LoginUiState::Waiting {
+            user_code,
+            verification_uri,
+        } => {
+            let uri = verification_uri.clone();
+            let cancel_actions = actions.clone();
+            row.push(
+                label()
+                    .text("Kod:")
+                    .font_size(12.)
+                    .color(theme::fg_muted())
+                    .into_element(),
+            );
+            row.push(
+                label()
+                    .text(user_code)
+                    .font_size(17.)
+                    .font_weight(FontWeight::BOLD)
+                    .color(theme::fg())
+                    .into_element(),
+            );
+            row.push(
+                label()
+                    .text(verification_uri)
+                    .font_size(11.)
+                    .color(theme::fg_muted())
+                    .into_element(),
+            );
+            row.push(
+                DButton::new("Tarayıcıda aç")
+                    .secondary()
+                    .on_press(move |_| {
+                        let _ = open::that_detached(&uri);
+                    })
+                    .into_element(),
+            );
+            row.push(
+                DButton::new("Vazgeç")
+                    .ghost()
+                    .on_press(move |_| cancel_actions.cancel_login())
+                    .into_element(),
+            );
+        }
+        LoginUiState::Failed(error) => {
+            let retry = actions.clone();
+            row.push(
+                label()
+                    .text(format!("Giriş hatası: {error}"))
+                    .font_size(12.)
+                    .max_lines(2)
+                    .color(theme::danger())
+                    .into_element(),
+            );
+            row.push(
+                DButton::new("Tekrar dene")
+                    .on_press(move |_| retry.start_ms_login())
+                    .into_element(),
+            );
+        }
+        LoginUiState::None => {
+            let account_line = match &settings.active {
+                Some(account) => {
+                    let kind = match &account.kind {
+                        disco_auth::AccountKind::Microsoft { .. } => "Microsoft",
+                        disco_auth::AccountKind::Offline => "çevrimdışı",
+                    };
+                    format!("Hesap: {} ({kind})", account.name)
+                }
+                None => format!("Hesap: {} (çevrimdışı)", settings.player_name),
+            };
+            let start = actions.clone();
+            let offline = actions.clone();
+            let ms_active = settings.active.is_some();
+
+            row.push(
+                label()
+                    .text(account_line)
+                    .font_size(12.)
+                    .width(Size::fill())
+                    .color(theme::fg())
+                    .into_element(),
+            );
+            row.push(
+                DButton::new("Microsoft ile giriş")
+                    .on_press(move |_| start.start_ms_login())
+                    .into_element(),
+            );
+            row.push(
+                DButton::new("Çevrimdışı")
+                    .secondary()
+                    .enabled(!ms_active)
+                    .on_press(move |_| offline.use_offline())
+                    .into_element(),
+            );
+        }
+    }
+
+    rect()
+        .horizontal()
+        .width(Size::fill())
+        .padding(Gaps::new(12., 16., 12., 16.))
+        .spacing(10.)
+        .cross_align(Alignment::Center)
+        .corner_radius(CornerRadius::new_all(12.))
+        .background(theme::surface())
+        .overflow(Overflow::Clip)
+        .children(row)
+}
+
+// ---------------------------------------------------------------------------
+// Tema kartı — 8 renk vurgu seçici
+// ---------------------------------------------------------------------------
+
+fn theme_card(actions: &crate::actions::Actions) -> impl IntoElement {
+    let settings = use_radio(AppChannel::Settings).read().settings.clone();
+
+    let mut swatches: Vec<Element> = Vec::new();
+    for hex in ACCENTS {
+        let selected = settings.accent.eq_ignore_ascii_case(hex);
+        let swatch_actions = actions.clone();
+        swatches.push(
+            rect()
+                .width(Size::px(22.))
+                .height(Size::px(22.))
+                .corner_radius(CornerRadius::new_all(7.))
+                .background(hex_to_color(hex))
+                .border(
+                    Border::new()
+                        .fill(if selected { Color::WHITE } else { theme::surface_raised() })
+                        .width(if selected { 2. } else { 1. })
+                        .alignment(BorderAlignment::Inner),
+                )
+                .on_press(move |_| swatch_actions.set_accent(hex.to_string()))
+                .cursor(CursorIcon::Pointer)
+                .into_element(),
+        );
+    }
+
+    rect()
+        .vertical()
+        .padding(Gaps::new(12., 16., 12., 16.))
+        .spacing(10.)
+        .corner_radius(CornerRadius::new_all(12.))
+        .background(theme::surface())
+        .child(
+            label()
+                .text("Vurgu rengi")
+                .font_size(12.)
+                .font_weight(FontWeight::SEMI_BOLD)
+                .color(theme::fg()),
+        )
+        .child(
+            rect()
+                .horizontal()
+                .spacing(8.)
+                .children(swatches),
         )
 }

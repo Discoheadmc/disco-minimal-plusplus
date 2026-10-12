@@ -5,6 +5,7 @@
 //! `settings.json` dosyasındadır. Arabirim sadece bu modül üzerinden konuşur.
 
 pub mod instance;
+pub mod java;
 pub mod launcher;
 pub mod settings;
 

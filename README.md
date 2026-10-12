@@ -30,20 +30,23 @@ packages/
 └── disco_app      # Freya UI (disco_minimal++ binary'si)
 ```
 
-## Durum — Kilometre Taşı 0 (iskelet)
+## Durum — Kilometre Taşı 1
 
 - [x] Cargo workspace altyapısı (edition 2024, Rust 1.97+)
-- [x] Mojang sürüm manifesti: çekme + ayrıştırma
+- [x] Mojang sürüm manifesti: çekme + ayrıştırma + disk önbelleği (çevrimdışı açılış)
 - [x] Sürüm çözümleme (`inheritsFrom` zinciri dahil)
 - [x] Client jar + kütüphaneler + assetler için paralel, SHA1 doğrulamalı indirme
 - [x] Natives çıkarma (LWJGL)
 - [x] Instance modeli (dosya tabanlı, XMCL/Prism tarzı)
 - [x] Çevrimdışı hesap (gerçek Mojang `OfflinePlayer:` UUID algoritması)
-- [x] Freya UI: instance listesi, sürüm seçici, başlat/durum paneli
-- [ ] Microsoft hesap girişi (device code flow — yapı hazır)
-- [ ] Java otomatik indirme
-- [ ] Tema/renk seçici (Disco Launcher'daki 8 renk geleneği)
+- [x] **Microsoft hesap girişi** (device code flow; XBL → XSTS → Minecraft services, otomatik token yenileme)
+- [x] **Java otomatik indirme** (Mojang java-runtime API; sistem Java'sı yoksa gereken sürüm iner)
+- [x] **8 renk tema seçici** (Disco Launcher geleneği, anında uygulanır)
+- [x] Freya UI: instance listesi, sürüm seçici, hesap kartı, durum çubuğu
+- [x] **Windows installer** (cargo-packager + NSIS, EXE ikonu gömülü)
 - [ ] Mod paketi mağazası (Modrinth/CurseForge)
+- [ ] Borderless özel başlık çubuğu
+- [ ] Mod yükleme (Fabric/Quilt harici sürümler)
 
 ## Geliştirme
 
@@ -55,6 +58,11 @@ cargo run -p disco_app
 
 # Release derle
 cargo build -p disco_app --release
+
+# Windows installer (NSIS) üret
+cargo install cargo-packager --locked
+cargo build --release -p disco_app
+cargo packager --release -p disco_app --formats nsis
 ```
 
 ## Lisans

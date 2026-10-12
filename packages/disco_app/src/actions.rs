@@ -6,7 +6,7 @@
 use freya::prelude::*;
 use freya::radio::RadioStation;
 
-use crate::state::{AppChannel, AppState, LaunchState, ManifestState};
+use crate::state::{AppChannel, AppState, LaunchState, ManifestState, LoginUiState};
 
 #[derive(Clone)]
 pub struct Actions {
@@ -173,19 +173,126 @@ impl Actions {
     }
 
     // ------------------------------------------------------------------
-    // Ayarlar
+    // Ayarlar / hesap / tema
     // ------------------------------------------------------------------
+
+    fn persist_settings(&self, mutate: impl FnOnce(&mut disco_core::LauncherSettings)) {
+        let mut settings = disco_core::settings::load();
+        mutate(&mut settings);
+        if let Err(err) = disco_core::settings::save(&settings) {
+            tracing::warn!("ayarlar kaydedilemedi: {err}");
+        }
+    }
 
     pub fn set_player_name(&self, name: String) {
         let name = disco_auth::sanitize_name(&name);
         self.write(AppChannel::Settings, |s| {
             s.settings.player_name = name.clone();
         });
-        let settings = disco_core::settings::load();
-        let mut settings = settings;
-        settings.player_name = name;
-        if let Err(err) = disco_core::settings::save(&settings) {
-            tracing::warn!("ayarlar kaydedilemedi: {err}");
+        self.persist_settings(|settings| settings.player_name = name);
+    }
+
+    pub fn set_accent(&self, hex: String) {
+        let for_state = hex.clone();
+        self.write(AppChannel::Settings, move |s| {
+            s.settings.accent = for_state;
+        });
+        self.persist_settings(move |settings| settings.accent = hex);
+    }
+
+    pub fn use_offline(&self) {
+        self.write(AppChannel::Account, |s| {
+            s.login_gen += 1;
+            s.login = LoginUiState::None;
+        });
+        self.write(AppChannel::Settings, |s| {
+            s.settings.active = None;
+        });
+        self.persist_settings(|settings| settings.active = None);
+    }
+
+    /// Microsoft device-code girişini başlatır: kodu göster, onayı bekle,
+    /// hesabı kaydet. `login_gen` ile iptal edilen akışların sonucu atılır.
+    pub fn start_ms_login(&self) {
+        let actions = self.clone();
+        let generation;
+        {
+            let mut guard = self.station.clone().write_channel(AppChannel::Account);
+            guard.login_gen += 1;
+            generation = guard.login_gen;
         }
+
+        spawn_forever(async move {
+            let http = match disco_net::Http::new() {
+                Ok(http) => http,
+                Err(err) => {
+                    actions.finish_login(generation, Err(err.to_string()));
+                    return;
+                }
+            };
+            match disco_auth::ms::DeviceLogin::start(&http, disco_auth::ms::DEFAULT_CLIENT_ID)
+                .await
+            {
+                Ok(login) => {
+                    let user_code = login.user_code.clone();
+                    let verification_uri = login.verification_uri.clone();
+                    actions.write(AppChannel::Account, move |s| {
+                        if s.login_gen != generation {
+                            return;
+                        }
+                        s.login = LoginUiState::Waiting {
+                            user_code,
+                            verification_uri,
+                        };
+                    });
+                    match login.wait().await {
+                        Ok(tokens) => {
+                            match disco_auth::ms::login_minecraft(&http, &tokens).await {
+                                Ok(account) => {
+                                    actions.finish_login(generation, Ok(account))
+                                }
+                                Err(err) => {
+                                    actions.finish_login(generation, Err(err.to_string()))
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            actions.finish_login(generation, Err(err.to_string()))
+                        }
+                    }
+                }
+                Err(err) => actions.finish_login(generation, Err(err.to_string())),
+            }
+        });
+    }
+
+    fn finish_login(
+        &self,
+        generation: u64,
+        result: Result<disco_auth::Account, String>,
+    ) {
+        if let Ok(account) = &result {
+            let account = account.clone();
+            self.persist_settings(move |settings| settings.active = Some(account));
+        }
+        self.write(AppChannel::Account, move |s| {
+            if s.login_gen != generation {
+                return; // iptal edildi
+            }
+            match result {
+                Ok(account) => {
+                    s.login = LoginUiState::None;
+                    s.settings.active = Some(account);
+                }
+                Err(error) => s.login = LoginUiState::Failed(error),
+            }
+        });
+    }
+
+    pub fn cancel_login(&self) {
+        self.write(AppChannel::Account, |s| {
+            s.login_gen += 1;
+            s.login = LoginUiState::None;
+        });
     }
 }

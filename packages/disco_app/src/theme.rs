@@ -23,14 +23,6 @@ pub fn accent() -> Color {
     Color::from_rgb(124, 92, 255)
 }
 
-pub fn accent_hover() -> Color {
-    Color::from_rgb(96, 70, 230)
-}
-
-pub fn accent_pressed() -> Color {
-    Color::from_rgb(82, 58, 210)
-}
-
 pub fn fg() -> Color {
     Color::from_rgb(240, 242, 250)
 }

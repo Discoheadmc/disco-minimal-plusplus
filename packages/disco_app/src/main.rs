@@ -66,6 +66,9 @@ fn main() {
     let window = WindowConfig::new_app(DiscoApp)
         .with_title(disco_common::constants::WINDOW_TITLE)
         .with_app_id("disco_minimal_plusplus")
+        .with_icon(LaunchConfig::window_icon(include_bytes!(
+            "../icons/128x128.png"
+        )))
         .with_size(1180., 760.)
         .with_min_size(920., 640.);
 

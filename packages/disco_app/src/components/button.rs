@@ -45,10 +45,6 @@ impl DButton {
         self.variant(ButtonVariant::Ghost)
     }
 
-    pub fn selected(self) -> Self {
-        self.variant(ButtonVariant::Selected)
-    }
-
     pub fn enabled(mut self, enabled: bool) -> Self {
         self.enabled = enabled;
         self
@@ -66,10 +62,11 @@ impl Component for DButton {
         let mut pressing = use_state(|| false);
 
         let enabled = self.enabled;
+        let accent = crate::components::use_accent();
 
         let (base, hover, pressed) = match self.variant {
-            ButtonVariant::Primary => {
-                (theme::accent(), theme::accent_hover(), theme::accent_pressed())
+            ButtonVariant::Primary | ButtonVariant::Selected => {
+                (accent.base, accent.hover, accent.pressed)
             }
             ButtonVariant::Secondary => (
                 theme::surface_raised(),
@@ -77,9 +74,6 @@ impl Component for DButton {
                 theme::bg(),
             ),
             ButtonVariant::Ghost => (Color::TRANSPARENT, theme::surface_raised(), theme::bg()),
-            ButtonVariant::Selected => {
-                (theme::accent(), theme::accent_pressed(), theme::accent_pressed())
-            }
         };
 
         let background = if !enabled {

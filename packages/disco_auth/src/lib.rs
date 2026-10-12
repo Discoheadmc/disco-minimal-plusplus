@@ -4,6 +4,8 @@
 //! Çevrimdışı UUID, Mojang'ın `OfflinePlayer:<isim>` MD5 algoritmasıyla üretilir;
 //! böylece çevrimdışı sunucularda kaplama/skin tutarlılığı korur.
 
+pub mod ms;
+
 use serde::{Deserialize, Serialize};
 
 use disco_common::{DiscoError, Result};
@@ -12,8 +14,10 @@ use disco_common::{DiscoError, Result};
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum AccountKind {
     Offline,
-    /// Microsoft token'ları; giriş akışı (device code flow) bir sonraki
-    /// kilometre taşında doldurulacak. Model şimdiden hazır.
+    /// Token semantiği:
+    /// - `access_token`: Minecraft services token'ı (oyuna verilir, ~24 saat)
+    /// - `refresh_token`: Microsoft OAuth refresh token'ı (MS yenilemesi için)
+    /// - `expires_at`: MC token'ının son kullanma zamanı (unix epoch saniyesi)
     Microsoft {
         access_token: String,
         refresh_token: String,
@@ -83,11 +87,42 @@ pub fn offline_uuid(name: &str) -> String {
     uuid::Uuid::from_bytes(bytes).to_string()
 }
 
-/// Microsoft device-code akışı — Kilometre Taşı 1'de doldurulacak.
-pub async fn login_microsoft() -> Result<Account> {
-    Err(DiscoError::Other(
-        "Microsoft girişi henüz uygulanmadı (Kilometre Taşı 1)".into(),
-    ))
+/// Microsoft hesabının MC token'ı süresi dolmak üzereyse yeniler:
+/// önce MS token'ları refresh eder, sonra XBL→XSTS→MC zincirini baştan
+/// çalıştırıp taze bir hesap döndürür. (MC access token'ı MS token'ıyla
+/// aynı şey DEĞİLDİR; yenileme her zaman zinciri tazeler.)
+pub async fn ensure_valid(account: &mut Account, http: &disco_net::Http) -> Result<()> {
+    let (expires_at, has_access) = match &account.kind {
+        AccountKind::Offline => return Ok(()), // çevrimdışıda yenilenecek bir şey yok
+        AccountKind::Microsoft {
+            access_token,
+            expires_at,
+            ..
+        } => (*expires_at, !access_token.is_empty()),
+    };
+
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    if now + 60 < expires_at && has_access {
+        return Ok(());
+    }
+
+    let refresh_token = match &account.kind {
+        AccountKind::Microsoft { refresh_token, .. } => refresh_token.clone(),
+        AccountKind::Offline => unreachable!("yukarıda döndük"),
+    };
+    if refresh_token.is_empty() {
+        return Err(DiscoError::Other(
+            "Microsoft oturumu düşmüş — tekrar giriş yapman gerek".into(),
+        ));
+    }
+
+    tracing::info!("Microsoft token yenileniyor…");
+    let tokens = ms::refresh_tokens(http, ms::DEFAULT_CLIENT_ID, &refresh_token).await?;
+    *account = ms::login_minecraft(http, &tokens).await?;
+    Ok(())
 }
 
 #[cfg(test)]

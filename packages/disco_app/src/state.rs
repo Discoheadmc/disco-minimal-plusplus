@@ -11,6 +11,7 @@ pub enum AppChannel {
     Manifest,
     Launch,
     Settings,
+    Account,
 }
 
 impl RadioChannel<AppState> for AppChannel {}
@@ -20,6 +21,10 @@ pub struct AppState {
     pub manifest: ManifestState,
     pub launch: LaunchState,
     pub settings: LauncherSettings,
+    /// Microsoft giriş akışının UI tarafı.
+    pub login: LoginUiState,
+    /// İptal edilen eski oturumların sonucu geçersiz kalsın diye nesil sayacı.
+    pub login_gen: u64,
 }
 
 /// Sürüm manifesti (UI için sadeleştirilmiş).
@@ -39,6 +44,14 @@ pub enum LaunchState {
     Failed(String),
 }
 
+/// Microsoft device-code girişinin ekrandaki hali.
+#[derive(Clone, PartialEq)]
+pub enum LoginUiState {
+    None,
+    Waiting { user_code: String, verification_uri: String },
+    Failed(String),
+}
+
 impl AppState {
     pub fn initial() -> Self {
         Self {
@@ -46,6 +59,8 @@ impl AppState {
             manifest: ManifestState::Loading,
             launch: LaunchState::Idle,
             settings: disco_core::settings::load(),
+            login: LoginUiState::None,
+            login_gen: 0,
         }
     }
 }

@@ -1,4 +1,4 @@
-//! Başlatma akışı: sürümü çöz → dosyaları indir → komutu kur → çalıştır.
+//! Başlatma akışı: sürümü çöz → dosyaları indir → Java sağla → komutu kur → çalıştır.
 //!
 //! Tüm ilerleme `LaunchEvent` olarak arayüze akıtılır; burada UI'a dair
 //! hiçbir bilgi tutulmaz.
@@ -6,7 +6,7 @@
 use disco_auth::Account;
 use disco_common::{DiscoError, Result};
 use disco_mc::launch::{
-    build_command, find_java, LaunchDirs, LaunchIdentity, LaunchJava,
+    build_command, LaunchDirs, LaunchIdentity, LaunchJava,
 };
 use disco_mc::prepare::{extract_natives, prepare_files};
 use disco_mc::resolve_version;
@@ -25,14 +25,11 @@ pub async fn launch(
     let http = Http::new()?;
     let resolved = resolve_version(&http, &instance.version_id).await?;
 
-    send(
-        &events,
-        LaunchEvent::Stage("Dosyalar hazırlanıyor (ilk seferde indirme uzun sürebilir)…".into()),
-    );
+    // ilerleme kanalını hem dosya hazırlığı hem java indirmesi paylaşır
     let (progress_tx, mut progress_rx) =
         tokio::sync::mpsc::unbounded_channel::<disco_net::BatchProgress>();
     let events_for_progress = events.clone();
-    let progress_task = tokio::spawn(async move {
+    tokio::spawn(async move {
         while let Some(progress) = progress_rx.recv().await {
             send(
                 &events_for_progress,
@@ -44,32 +41,75 @@ pub async fn launch(
         }
     });
 
-    let files = prepare_files(&http, &resolved, Some(progress_tx)).await?;
-    let _ = progress_task.abort();
+    send(
+        &events,
+        LaunchEvent::Stage("Dosyalar hazırlanıyor (ilk seferde indirme uzun sürebilir)…".into()),
+    );
+    let files = prepare_files(&http, &resolved, Some(progress_tx.clone())).await?;
 
     send(&events, LaunchEvent::Stage("Natives çıkarılıyor…".into()));
     extract_natives(&files.native_jars, &instance.natives_dir()?).await?;
 
-    send(&events, LaunchEvent::Stage("Java bulunuyor…".into()));
-    let java_path = settings
-        .java_path
-        .as_ref()
-        .map(std::path::PathBuf::from)
-        .or_else(find_java)
-        .ok_or_else(|| {
-            DiscoError::NotFound(
-                "Java bulunamadı. JAVA_HOME tanımlayın veya Ayarlar'dan yol girin.".into(),
-            )
-        })?;
+    // ---- Java sağlama -------------------------------------------------------
+    let required_major = resolved.java_major;
+    let java_path = match &settings.java_path {
+        Some(explicit) => {
+            let path = std::path::PathBuf::from(explicit);
+            if !path.exists() {
+                return Err(DiscoError::NotFound(format!(
+                    "Ayarlandaki Java yolu yok: {}",
+                    path.display()
+                )));
+            }
+            path
+        }
+        None => match crate::java::find_suitable(required_major).await {
+            Some(system_java) => {
+                tracing::info!("sistem Java'sı kullanılıyor: {}", system_java.display());
+                system_java
+            }
+            None => {
+                send(
+                    &events,
+                    LaunchEvent::Stage("Java bulunamadı — Mojang runtime indiriliyor…".into()),
+                );
+                crate::java::ensure_installed(&http, required_major, Some(progress_tx.clone()))
+                    .await?
+            }
+        },
+    };
 
-    let account = Account::offline(&settings.player_name);
+    // ---- Hesap / token ------------------------------------------------------
+    send(&events, LaunchEvent::Stage("Hesap hazırlanıyor…".into()));
+    let mut account = settings
+        .active
+        .clone()
+        .unwrap_or_else(|| Account::offline(&settings.player_name));
+    disco_auth::ensure_valid(&mut account, &http).await?;
+
+    // yenilenmiş token'ları kalıcı hale getir
+    if settings.active.is_some() {
+        let mut updated = settings.clone();
+        updated.active = Some(account.clone());
+        let _ = crate::settings::save(&updated);
+    }
+
+    let access_token = match &account.kind {
+        disco_auth::AccountKind::Offline => "0".to_string(),
+        disco_auth::AccountKind::Microsoft { access_token, .. } => access_token.clone(),
+    };
+    let xuid = match &account.kind {
+        disco_auth::AccountKind::Microsoft { xuid, .. } => xuid.clone(),
+        disco_auth::AccountKind::Offline => None,
+    };
+
     let identity = LaunchIdentity {
         // modern MC düz UUID bekliyor
         uuid: account.uuid.replace('-', ""),
         name: account.name.clone(),
-        access_token: "0".into(),
+        access_token,
         user_type: account.user_type(),
-        xuid: None,
+        xuid,
     };
 
     let dirs = LaunchDirs {

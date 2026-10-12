@@ -7,10 +7,21 @@ use serde::{Deserialize, Serialize};
 pub struct LauncherSettings {
     /// Varsayılan oyuncu adı (çevrimdışı hesap).
     pub player_name: String,
-    /// Java yolu; None ise JAVA_HOME/PATH'ten bulunur.
+    /// Java yolu; None ise sistem Java'sı bulunur, o da yoksa Mojang
+    /// java-runtime otomatik indirilir.
     pub java_path: Option<String>,
     /// Oyuna verilecek bellek (MB).
     pub memory_mb: u32,
+    /// Aktif hesap; None ise çevrimdışı `player_name` kullanılır.
+    #[serde(default)]
+    pub active: Option<disco_auth::Account>,
+    /// Tema vurgu rengi (hex). Disco Launcher'daki 8 renk geleneği.
+    #[serde(default = "default_accent")]
+    pub accent: String,
+}
+
+fn default_accent() -> String {
+    "#7c5cff".into()
 }
 
 impl Default for LauncherSettings {
@@ -19,6 +30,8 @@ impl Default for LauncherSettings {
             player_name: "Player".into(),
             java_path: None,
             memory_mb: 2048,
+            active: None,
+            accent: default_accent(),
         }
     }
 }

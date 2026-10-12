@@ -35,6 +35,7 @@ pub type ProgressTx = tokio::sync::mpsc::UnboundedSender<BatchProgress>;
 /// Aynı anda açılan bağlantı sayısı. Mojang CDN'i naziktir; 24 makul.
 const CONCURRENCY: usize = 24;
 
+#[derive(Clone)]
 pub struct Http {
     client: reqwest::Client,
 }
@@ -81,6 +82,71 @@ impl Http {
         }
         response
             .text()
+            .await
+            .map_err(|e| DiscoError::Http(e.to_string()))
+    }
+
+    /// Bearer token'lı JSON GET.
+    pub async fn get_json_bearer<T: serde::de::DeserializeOwned>(
+        &self,
+        url: &str,
+        bearer: &str,
+    ) -> Result<T> {
+        let response = self
+            .client
+            .get(url)
+            .bearer_auth(bearer)
+            .send()
+            .await
+            .map_err(|e| DiscoError::Http(e.to_string()))?;
+        let status = response.status();
+        if !status.is_success() {
+            let text = response.text().await.unwrap_or_default();
+            return Err(DiscoError::Http(format!("HTTP {status} ({url}): {text}")));
+        }
+        response
+            .json::<T>()
+            .await
+            .map_err(|e| DiscoError::Http(e.to_string()))
+    }
+
+    /// Form-gövdeli POST; durum koduna bakmaksızın gövdeyi döndürür
+    /// (OAuth akışlarında hatalar da JSON gövdede gelir).
+    pub async fn post_form_raw(&self, url: &str, params: &[(&str, &str)]) -> Result<String> {
+        let response = self
+            .client
+            .post(url)
+            .form(params)
+            .send()
+            .await
+            .map_err(|e| DiscoError::Http(e.to_string()))?;
+        response
+            .text()
+            .await
+            .map_err(|e| DiscoError::Http(e.to_string()))
+    }
+
+    /// JSON gövdeli POST; hata durumunda gövde mesaja dahil edilir
+    /// (XSTS hata kodları gövdede taşınır).
+    pub async fn post_json<T: serde::de::DeserializeOwned>(
+        &self,
+        url: &str,
+        body: serde_json::Value,
+    ) -> Result<T> {
+        let response = self
+            .client
+            .post(url)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| DiscoError::Http(e.to_string()))?;
+        let status = response.status();
+        if !status.is_success() {
+            let text = response.text().await.unwrap_or_default();
+            return Err(DiscoError::Http(format!("HTTP {status} ({url}): {text}")));
+        }
+        response
+            .json::<T>()
             .await
             .map_err(|e| DiscoError::Http(e.to_string()))
     }

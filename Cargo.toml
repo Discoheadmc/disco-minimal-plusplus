@@ -31,6 +31,7 @@ reqwest = { version = "0.13", default-features = false, features = [
   "charset",
   "http2",
   "gzip",
+  "form",
 ] }
 
 # serileştirme
@@ -46,10 +47,12 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 # yardımcılar
 sha1 = "0.11"
 md-5 = "0.11"
+base64 = "0.23"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 directories = "6"
 zip = "2"
+open = { version = "5", features = ["shellexecute-on-windows"] }
 
 # UI — OneLauncher ile aynı Polyfrost Freya fork'u (kanıtlanmış Windows MSVC derlemesi)
 freya = { git = "https://github.com/Polyfrost/freya", rev = "12f696f68c4936617b8627c862b39acb3d9cca2b", features = [
