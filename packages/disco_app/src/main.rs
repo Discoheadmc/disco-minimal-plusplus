@@ -11,6 +11,9 @@ mod state;
 mod theme;
 mod view;
 
+#[cfg(test)]
+mod ui_tests;
+
 use freya::prelude::*;
 use freya::radio::use_init_radio_station;
 

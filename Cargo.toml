@@ -62,6 +62,7 @@ freya = { git = "https://github.com/Polyfrost/freya", rev = "12f696f68c4936617b8
   "sdk-tokio",
   "radio",
 ] }
+freya-testing = { git = "https://github.com/Polyfrost/freya", rev = "12f696f68c4936617b8627c862b39acb3d9cca2b" }
 
 [profile.release]
 codegen-units = 1

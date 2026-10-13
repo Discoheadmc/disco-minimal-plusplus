@@ -32,24 +32,18 @@ impl Component for Home {
         let tab = use_state(|| Tab::Instances);
         let active = *tab.read();
 
+        // Sekme içerikleri AYRI Component'lardır: her birinin kendi hook
+        // kapsamı vardır. Koşullu dallarda serbest fonksiyon içi hook
+        // kullanmak Freya'da panikle sonuçlanır.
         let content = match active {
-            Tab::Instances => rect()
-                .horizontal()
-                .width(Size::fill())
-                .height(Size::fill())
-                .padding(Gaps::new(20., 20., 0., 20.))
-                .spacing(16.)
-                .child(instances_panel(&instances, busy, &actions))
-                .child(create_panel(&manifest, &player, busy, &actions))
-                .into_element(),
-            Tab::Store => rect()
-                .horizontal()
-                .width(Size::fill())
-                .height(Size::fill())
-                .padding(Gaps::new(20., 20., 0., 20.))
-                .spacing(16.)
-                .child(store_panel(&store, &actions))
-                .into_element(),
+            Tab::Instances => InstancesTab {
+                instances,
+                manifest,
+                player,
+                busy,
+            }
+            .into_element(),
+            Tab::Store => StoreTab { store }.into_element(),
         };
 
         rect()
@@ -57,7 +51,7 @@ impl Component for Home {
             .width(Size::fill())
             .height(Size::fill())
             .background(theme::bg())
-            .child(header(tab))
+            .child(header(tab, &actions))
             .child(content)
             .child(
                 rect()
@@ -73,10 +67,53 @@ impl Component for Home {
     }
 }
 
-fn header(tab: State<Tab>) -> impl IntoElement {
+/// "Instance'lar" sekmesi — kendi hook kapsamında yaşar.
+#[derive(Clone, PartialEq)]
+pub struct InstancesTab {
+    pub instances: Vec<Instance>,
+    pub manifest: ManifestState,
+    pub player: String,
+    pub busy: bool,
+}
+
+impl Component for InstancesTab {
+    fn render(&self) -> impl IntoElement {
+        let actions = use_dispatch();
+        rect()
+            .horizontal()
+            .width(Size::fill())
+            .height(Size::fill())
+            .padding(Gaps::new(20., 20., 0., 20.))
+            .spacing(16.)
+            .child(instances_panel(&self.instances, self.busy, &actions))
+            .child(create_panel(&self.manifest, &self.player, self.busy, &actions))
+    }
+}
+
+/// "Mağaza" sekmesi — kendi hook kapsamında yaşar.
+#[derive(Clone, PartialEq)]
+pub struct StoreTab {
+    pub store: StoreState,
+}
+
+impl Component for StoreTab {
+    fn render(&self) -> impl IntoElement {
+        let actions = use_dispatch();
+        rect()
+            .horizontal()
+            .width(Size::fill())
+            .height(Size::fill())
+            .padding(Gaps::new(20., 20., 0., 20.))
+            .spacing(16.)
+            .child(store_panel(&self.store, &actions))
+    }
+}
+
+fn header(tab: State<Tab>, actions: &crate::actions::Actions) -> impl IntoElement {
     let active = *tab.read();
     let mut tab_instances = tab;
     let mut tab_store = tab;
+    let store_actions = actions.clone();
 
     rect()
         .horizontal()
@@ -128,7 +165,7 @@ fn header(tab: State<Tab>) -> impl IntoElement {
                 .on_press(move |_| {
                     tab_store.set(Tab::Store);
                     // boşsa popüler listesini getir (loaded guard'ı içeride)
-                    crate::actions::use_dispatch().show_popular();
+                    store_actions.show_popular();
                 })
                 .into_element(),
         )

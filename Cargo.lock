@@ -1233,6 +1233,7 @@ dependencies = [
  "disco_mc",
  "disco_net",
  "freya",
+ "freya-testing",
  "open",
  "tokio",
  "tracing",
@@ -1856,6 +1857,21 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.8",
+]
+
+[[package]]
+name = "freya-testing"
+version = "0.5.0-beta.10"
+source = "git+https://github.com/Polyfrost/freya?rev=12f696f68c4936617b8627c862b39acb3d9cca2b#12f696f68c4936617b8627c862b39acb3d9cca2b"
+dependencies = [
+ "accesskit",
+ "freya-clipboard",
+ "freya-components",
+ "freya-core",
+ "freya-engine",
+ "futures-channel",
+ "ragnarok",
+ "torin",
 ]
 
 [[package]]
