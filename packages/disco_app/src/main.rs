@@ -73,9 +73,12 @@ fn main() {
             "../icons/128x128.png"
         )))
         .with_size(1180., 760.)
-        .with_min_size(920., 640.);
+        .with_min_size(920., 640.)
+        .with_decorations(false);
 
-    let launch_config = LaunchConfig::new().with_window(window);
+    let launch_config = LaunchConfig::new()
+        .with_window(window)
+        .with_plugin(freya::borderless::BorderlessPlugin::new());
 
     launch(launch_config);
 }

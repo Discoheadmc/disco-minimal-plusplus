@@ -118,10 +118,11 @@ fn header(tab: State<Tab>, actions: &crate::actions::Actions) -> impl IntoElemen
     rect()
         .horizontal()
         .width(Size::fill())
-        .padding(Gaps::new(12., 20., 12., 20.))
+        .padding(Gaps::new(12., 0., 12., 20.))
         .spacing(12.)
         .cross_align(Alignment::Center)
         .background(theme::surface())
+        .window_drag()
         .child(
             rect()
                 .width(Size::px(34.))
@@ -173,6 +174,7 @@ fn header(tab: State<Tab>, actions: &crate::actions::Actions) -> impl IntoElemen
             rect()
                 .width(Size::fill())
                 .main_align(Alignment::End)
+                .padding(Gaps::new(0., 12., 0., 0.))
                 .child(
                     label()
                         .text(format!("v{} — Rust + Freya", disco_common::constants::VERSION))
@@ -180,6 +182,32 @@ fn header(tab: State<Tab>, actions: &crate::actions::Actions) -> impl IntoElemen
                         .color(theme::fg_muted()),
                 ),
         )
+        .child(window_controls())
+}
+
+/// Borderless pencere kontrolleri: küçült / büyült / kapat.
+/// Başlık çubuğunun sağ ucunda, hover'da vurgulanan standart butonlar.
+fn window_controls() -> impl IntoElement {
+    let minimize = move |_: Event<PressEventData>| {
+        Platform::get().with_window(Platform::window_id(), |window| {
+            window.set_minimized(true);
+        });
+    };
+    let maximize = move |_: Event<PressEventData>| {
+        Platform::get().with_window(Platform::window_id(), |window| {
+            window.set_maximized(!window.is_maximized());
+        });
+    };
+    let close = move |_: Event<PressEventData>| {
+        Platform::get().close_window(Platform::window_id());
+    };
+
+    rect()
+        .horizontal()
+        .height(Size::px(34.))
+        .child(TitlebarButton::new(TitlebarAction::Minimize).on_press(minimize))
+        .child(TitlebarButton::new(TitlebarAction::Maximize).on_press(maximize))
+        .child(TitlebarButton::new(TitlebarAction::Close).on_press(close))
 }
 
 fn instances_panel(

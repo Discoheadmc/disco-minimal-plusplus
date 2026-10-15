@@ -61,6 +61,8 @@ freya = { git = "https://github.com/Polyfrost/freya", rev = "12f696f68c4936617b8
   "winit",
   "sdk-tokio",
   "radio",
+  "borderless",
+  "titlebar",
 ] }
 freya-testing = { git = "https://github.com/Polyfrost/freya", rev = "12f696f68c4936617b8627c862b39acb3d9cca2b" }
 

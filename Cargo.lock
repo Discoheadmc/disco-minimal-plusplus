@@ -1672,6 +1672,7 @@ dependencies = [
  "cfg-if",
  "freya-android",
  "freya-animation",
+ "freya-borderless-plugin",
  "freya-clipboard",
  "freya-components",
  "freya-core",
@@ -1704,6 +1705,17 @@ source = "git+https://github.com/Polyfrost/freya?rev=12f696f68c4936617b8627c862b
 dependencies = [
  "easer",
  "freya-core",
+]
+
+[[package]]
+name = "freya-borderless-plugin"
+version = "0.5.0-beta.10"
+source = "git+https://github.com/Polyfrost/freya?rev=12f696f68c4936617b8627c862b39acb3d9cca2b#12f696f68c4936617b8627c862b39acb3d9cca2b"
+dependencies = [
+ "freya-core",
+ "freya-engine",
+ "freya-winit",
+ "torin",
 ]
 
 [[package]]
