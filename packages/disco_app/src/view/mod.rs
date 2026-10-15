@@ -205,6 +205,8 @@ fn window_controls() -> impl IntoElement {
     rect()
         .horizontal()
         .height(Size::px(34.))
+        // SVG ikonlar fill="currentColor" kullanır: beyaz kalıtım şart
+        .color(theme::fg())
         .child(TitlebarButton::new(TitlebarAction::Minimize).on_press(minimize))
         .child(TitlebarButton::new(TitlebarAction::Maximize).on_press(maximize))
         .child(TitlebarButton::new(TitlebarAction::Close).on_press(close))
