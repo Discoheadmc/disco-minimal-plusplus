@@ -51,6 +51,7 @@ impl Component for Home {
             .width(Size::fill())
             .height(Size::fill())
             .background(theme::bg())
+            .content(Content::Flex)
             .child(header(tab, &actions))
             .child(content)
             .child(
@@ -60,6 +61,7 @@ impl Component for Home {
                     .padding(Gaps::new(16., 20., 8., 20.))
                     .spacing(16.)
                     .cross_align(Alignment::Center)
+                    .content(Content::Flex)
                     .child(account_card(&actions))
                     .child(theme_card(&actions)),
             )
@@ -82,7 +84,9 @@ impl Component for InstancesTab {
         rect()
             .horizontal()
             .width(Size::fill())
-            .height(Size::fill())
+            // dikey kolonda alt kartlarla paylaşımlı: fill değil flex!
+            .height(Size::flex(1.0))
+            .content(Content::Flex)
             .padding(Gaps::new(20., 20., 0., 20.))
             .spacing(16.)
             .child(instances_panel(&self.instances, self.busy, &actions))
@@ -102,7 +106,8 @@ impl Component for StoreTab {
         rect()
             .horizontal()
             .width(Size::fill())
-            .height(Size::fill())
+            .height(Size::flex(1.0))
+            .content(Content::Flex)
             .padding(Gaps::new(20., 20., 0., 20.))
             .spacing(16.)
             .child(store_panel(&self.store, &actions))
@@ -122,6 +127,7 @@ fn header(tab: State<Tab>, actions: &crate::actions::Actions) -> impl IntoElemen
         .spacing(12.)
         .cross_align(Alignment::Center)
         .background(theme::surface())
+        .content(Content::Flex)
         .window_drag()
         .child(
             rect()
@@ -172,7 +178,7 @@ fn header(tab: State<Tab>, actions: &crate::actions::Actions) -> impl IntoElemen
         )
         .child(
             rect()
-                .width(Size::fill())
+                .width(Size::flex(1.0))
                 .main_align(Alignment::End)
                 .padding(Gaps::new(0., 12., 0., 0.))
                 .child(
@@ -235,7 +241,8 @@ fn instances_panel(
 
     rect()
         .vertical()
-        .width(Size::fill())
+        // yatay satırda 320px create panel ile paylaşımlı: flex!
+        .width(Size::flex(1.0))
         .height(Size::fill())
         .padding(Gaps::new(16., 16., 16., 16.))
         .spacing(12.)
@@ -270,10 +277,12 @@ fn instance_card(
         .cross_align(Alignment::Center)
         .corner_radius(CornerRadius::new_all(10.))
         .background(theme::surface_raised())
+        .content(Content::Flex)
         .child(
             rect()
                 .vertical()
-                .width(Size::fill())
+                // yatay kartta Başlat/✕ butonlarıyla paylaşımlı: flex!
+                .width(Size::flex(1.0))
                 .spacing(2.)
                 .child(
                     label()
@@ -398,6 +407,7 @@ fn create_panel(
                 .child(
                     Input::new(instance_name)
                         .placeholder("ör. Survival")
+                        .width(Size::fill())
                         .padding(Gaps::new_symmetric(8., 12.))
                         .corner_radius(CornerRadius::new_all(8.))
                         .background(theme::surface_raised())
@@ -451,6 +461,7 @@ fn create_panel(
                 .child(
                     Input::new(player_name)
                         .placeholder("Player")
+                        .width(Size::fill())
                         .padding(Gaps::new_symmetric(8., 12.))
                         .corner_radius(CornerRadius::new_all(8.))
                         .background(theme::surface_raised())
@@ -586,7 +597,8 @@ fn account_card(actions: &crate::actions::Actions) -> impl IntoElement {
                 label()
                     .text(account_line)
                     .font_size(12.)
-                    .width(Size::fill())
+                    // satırda giriş butonlarıyla paylaşımlı: flex!
+                    .width(Size::flex(1.0))
                     .color(theme::fg())
                     .into_element(),
             );
@@ -607,13 +619,15 @@ fn account_card(actions: &crate::actions::Actions) -> impl IntoElement {
 
     rect()
         .horizontal()
-        .width(Size::fill())
+        // alt satırda theme card ile paylaşımlı: flex!
+        .width(Size::flex(1.0))
         .padding(Gaps::new(12., 16., 12., 16.))
         .spacing(10.)
         .cross_align(Alignment::Center)
         .corner_radius(CornerRadius::new_all(12.))
         .background(theme::surface())
         .overflow(Overflow::Clip)
+        .content(Content::Flex)
         .children(row)
 }
 
@@ -704,7 +718,7 @@ fn store_panel(store: &StoreState, actions: &crate::actions::Actions) -> impl In
 
     rect()
         .vertical()
-        .width(Size::fill())
+        .width(Size::flex(1.0))
         .height(Size::fill())
         .padding(Gaps::new(16., 16., 16., 16.))
         .spacing(12.)
@@ -724,9 +738,11 @@ fn store_panel(store: &StoreState, actions: &crate::actions::Actions) -> impl In
                 .width(Size::fill())
                 .spacing(8.)
                 .cross_align(Alignment::Center)
+                .content(Content::Flex)
                 .child(
                     Input::new(query)
                         .placeholder("Mod paketi ara (ör. Simply Optimized, Fabulously Optimized)")
+                        .width(Size::flex(1.0))
                         .padding(Gaps::new_symmetric(8., 12.))
                         .corner_radius(CornerRadius::new_all(8.))
                         .background(theme::surface_raised())
@@ -775,10 +791,12 @@ fn store_row(hit: &StoreHit, actions: &crate::actions::Actions) -> impl IntoElem
         .cross_align(Alignment::Center)
         .corner_radius(CornerRadius::new_all(10.))
         .background(theme::surface_raised())
+        .content(Content::Flex)
         .child(
             rect()
                 .vertical()
-                .width(Size::fill())
+                // yatay satırda indirme/Kur bilgileriyle paylaşımlı: flex!
+                .width(Size::flex(1.0))
                 .spacing(2.)
                 .child(
                     label()
